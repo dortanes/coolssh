@@ -1,6 +1,6 @@
 cask "coolssh" do
-  version "0.0.0"
-  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+  version "0.1.0"
+  sha256 "e98f0a5af3aa47d4a02d2e44b7098d69dc3039ff12361d4c5ca7da8fdabe5659"
 
   url "https://github.com/dortanes/coolssh/releases/download/v#{version}/coolssh-#{version}-macos-universal.dmg"
   name "CoolSSH"
