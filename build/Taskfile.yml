@@ -1,0 +1,93 @@
+version: '3'
+
+tasks:
+  go:mod:tidy:
+    summary: Runs `go mod tidy`
+    internal: true
+    # Universal builds run this from parallel deps; two tidies racing on go.mod can corrupt it.
+    run: once
+    cmds:
+      - go mod tidy
+
+  install:frontend:deps:
+    summary: Installs the frontend's dependencies
+    run: once
+    dir: frontend
+    sources:
+      - package.json
+      - pnpm-lock.yaml
+    generates:
+      - node_modules
+    preconditions:
+      - sh: pnpm --version
+        msg: "pnpm is required: https://pnpm.io/installation"
+    cmds:
+      - pnpm install --frozen-lockfile
+
+  build:frontend:
+    label: build:frontend (DEV={{.DEV}})
+    summary: Builds the frontend
+    # Universal builds depend on this from parallel deps; one run keeps the bindings from being
+    # regenerated while the bundler reads them.
+    run: once
+    dir: frontend
+    sources:
+      - "**/*"
+      - exclude: node_modules/**/*
+    generates:
+      - dist/**/*
+    deps:
+      - task: install:frontend:deps
+      - task: generate:bindings
+        vars:
+          BUILD_FLAGS:
+            ref: .BUILD_FLAGS
+    cmds:
+      - pnpm run {{if eq .DEV "true"}}build:dev{{else}}build{{end}}
+    env:
+      PRODUCTION: '{{if eq .DEV "true"}}false{{else}}true{{end}}'
+
+  generate:bindings:
+    summary: Generates the frontend's bindings to the bound Go service
+    run: once
+    deps:
+      - task: go:mod:tidy
+    sources:
+      - "**/*.go"
+      - go.mod
+      - go.sum
+    generates:
+      - frontend/bindings/**/*
+    cmds:
+      - go tool wails3 generate bindings -f '{{.BUILD_FLAGS}}' -clean=true -ts -i
+
+  generate:icons:
+    summary: Renders the platform icons when they are missing
+    status:
+      - test -f build/darwin/Assets.car
+      - test -f build/darwin/icons.icns
+      - test -f build/windows/icon.ico
+      - test -f build/appicon.png
+    cmds:
+      - task: render:icons
+
+  render:icons:
+    summary: Renders every platform icon from build/appicon.icon with Xcode's Icon Composer and actool
+    dir: build
+    cmds:
+      - '"$(xcode-select -p)/../Applications/Icon Composer.app/Contents/Executables/ictool" appicon.icon --export-image --output-file appicon.png --platform macOS --rendition Default --width 1024 --height 1024 --scale 1 > /dev/null'
+      - go tool wails3 generate icons -input appicon.png -macfilename darwin/icons.icns -windowsfilename windows/icon.ico -iconcomposerinput appicon.icon -macassetdir darwin
+
+  dev:frontend:
+    summary: Runs the frontend's development server
+    deps:
+      - task: install:frontend:deps
+    dir: frontend
+    cmds:
+      - pnpm dev
+
+  update:build-assets:
+    summary: Rewrites the plists, manifests and installers from build/config.yml
+    dir: build
+    cmds:
+      - go tool wails3 update build-assets -name "{{.APP_NAME}}" -binaryname "{{.APP_NAME}}" -config config.yml -dir .
