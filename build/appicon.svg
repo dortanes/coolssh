@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="surface" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#27272a"/>
+      <stop offset="1" stop-color="#09090b"/>
+    </linearGradient>
+    <linearGradient id="card-surface" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#3f3f46" stop-opacity="0.88"/>
+      <stop offset="0.45" stop-color="#27272a" stop-opacity="0.82"/>
+      <stop offset="1" stop-color="#18181b" stop-opacity="0.9"/>
+    </linearGradient>
+    <linearGradient id="card-sheen" x1="0" y1="0" x2="0.6" y2="0.7">
+      <stop offset="0" stop-color="#fafafa" stop-opacity="0.16"/>
+      <stop offset="0.5" stop-color="#fafafa" stop-opacity="0.03"/>
+      <stop offset="1" stop-color="#fafafa" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="card-rim" x1="0" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#d4d4d8"/>
+      <stop offset="0.35" stop-color="#71717a"/>
+      <stop offset="1" stop-color="#52525b"/>
+    </linearGradient>
+    <linearGradient id="prompt-surface" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e4e4e7"/>
+    </linearGradient>
+  </defs>
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#surface)"/>
+  <rect x="200" y="200" width="624" height="624" rx="140" fill="url(#card-surface)" stroke="url(#card-rim)" stroke-width="8"/>
+  <rect x="204" y="204" width="616" height="616" rx="136" fill="url(#card-sheen)"/>
+  <path d="M 322.5,431.1 A 36,36 0 0 1 373.5,376.9 L 493.5,484.9 A 36,36 0 0 1 493.5,539.1 L 373.5,647.1 A 36,36 0 0 1 322.5,592.9 L 414.6,512 Z" fill="url(#prompt-surface)"/>
+  <rect x="496" y="584" width="216" height="72" rx="36" fill="url(#prompt-surface)"/>
+</svg>
