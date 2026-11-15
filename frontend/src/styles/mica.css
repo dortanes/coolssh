@@ -1,0 +1,120 @@
+/*
+ * Windows Mica: the window's Mica shows through a transparent sidebar and a light layer over the
+ * workspace; controls are Fluent fills with a hairline stroke that darkens along the bottom edge,
+ * and a chosen option takes the accent. Values follow the Fluent design tokens.
+ */
+:root[data-style="mica"] {
+  --app-font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  /* Windows Terminal's font. */
+  --terminal-font: "Cascadia Mono", Consolas, monospace;
+  --terminal-font-size: 14px;
+  --radius: 0.5rem;
+  --background: rgb(255 255 255 / 0.5);
+  --foreground: #1a1a1a;
+  --card: rgb(255 255 255 / 0.7);
+  --card-foreground: #1a1a1a;
+  --popover: rgb(249 249 249 / 0.9);
+  --popover-foreground: #1a1a1a;
+  --primary: #005fb8;
+  --primary-foreground: #ffffff;
+  --secondary: rgb(0 0 0 / 0.04);
+  --secondary-foreground: #1a1a1a;
+  --muted: rgb(0 0 0 / 0.03);
+  --muted-foreground: #5d5d5d;
+  --accent: rgb(0 0 0 / 0.04);
+  --accent-foreground: #1a1a1a;
+  --destructive: #c42b1c;
+  --border: rgb(0 0 0 / 0.07);
+  --input: rgb(255 255 255 / 0.7);
+  --ring: #1a1a1a;
+  --sidebar: transparent;
+  --sidebar-foreground: #1a1a1a;
+  --sidebar-primary: #005fb8;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgb(0 0 0 / 0.04);
+  --sidebar-accent-foreground: #1a1a1a;
+  --sidebar-border: rgb(0 0 0 / 0.07);
+  --sidebar-ring: #1a1a1a;
+  --control-stroke: rgb(0 0 0 / 0.06);
+  --control-stroke-bottom: rgb(0 0 0 / 0.16);
+}
+
+:root[data-style="mica"].dark {
+  --background: rgb(58 58 58 / 0.3);
+  --foreground: #ffffff;
+  --card: rgb(255 255 255 / 0.05);
+  --card-foreground: #ffffff;
+  --popover: rgb(44 44 44 / 0.92);
+  --popover-foreground: #ffffff;
+  --primary: #60cdff;
+  --primary-foreground: #000000;
+  --secondary: rgb(255 255 255 / 0.06);
+  --secondary-foreground: #ffffff;
+  --muted: rgb(255 255 255 / 0.04);
+  --muted-foreground: #cfcfcf;
+  --accent: rgb(255 255 255 / 0.06);
+  --accent-foreground: #ffffff;
+  --destructive: #ff99a4;
+  --border: rgb(255 255 255 / 0.08);
+  --input: rgb(255 255 255 / 0.06);
+  --ring: #ffffff;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #60cdff;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: rgb(255 255 255 / 0.06);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgb(255 255 255 / 0.08);
+  --sidebar-ring: #ffffff;
+  --control-stroke: rgb(255 255 255 / 0.07);
+  --control-stroke-bottom: rgb(255 255 255 / 0.1);
+}
+
+/* On a solid window the sidebar keeps a tint of its own, since no Mica shows through it. */
+:root[data-style="mica"][data-material="false"] {
+  --sidebar: rgb(0 0 0 / 0.03);
+}
+
+:root[data-style="mica"][data-material="false"].dark {
+  --sidebar: rgb(255 255 255 / 0.03);
+}
+
+:root[data-style="mica"] {
+  [data-slot="button"] {
+    border-radius: 0.25rem;
+  }
+
+  :is(
+      [data-slot="select-trigger"],
+      [data-slot="toggle-group-item"],
+      [data-slot="input"],
+      [data-slot="textarea"]
+    ) {
+    border: 1px solid var(--control-stroke);
+    border-bottom-color: var(--control-stroke-bottom);
+    border-radius: 0.25rem;
+    background: var(--input);
+  }
+
+  /* Flyouts and dialogs: acrylic over the page, with Fluent's corners and depth. */
+  :is([data-surface="menu"], [data-surface="dialog"], [data-surface="toast"]) {
+    border: 1px solid var(--control-stroke);
+    border-radius: 0.5rem;
+    background: var(--popover);
+    box-shadow: 0 8px 16px rgb(0 0 0 / 0.14);
+    backdrop-filter: blur(30px) saturate(1.25);
+  }
+
+  :is([data-surface="menu"] :is([role="option"], [role="menuitem"]), [role="treeitem"]) {
+    border-radius: 0.25rem;
+  }
+
+  [data-slot="toggle-group"] {
+    gap: 0.25rem;
+  }
+
+  [data-slot="toggle-group-item"][aria-pressed="true"] {
+    border-color: transparent;
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+}

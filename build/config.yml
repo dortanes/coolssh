@@ -1,0 +1,39 @@
+# Product information for the app and its build assets. release-please sets `info.version` here and
+# in the platform files it lists in release-please-config.json.
+version: '3'
+
+info:
+  companyName: "dortanes"
+  productName: "CoolSSH"
+  productIdentifier: "io.github.dortanes.coolssh"
+  description: "SSH client for macOS, Windows and Linux"
+  copyright: "Copyright (c) 2026 dortanes"
+  comments: "SSH client for macOS, Windows and Linux"
+  version: "0.1.0" # x-release-please-version
+  cfBundleIconName: "appicon"
+
+dev_mode:
+  root_path: .
+  log_level: warn
+  debounce: 1000
+  ignore:
+    dir:
+      - .git
+      - node_modules
+      - frontend
+      - bin
+    file:
+      - .DS_Store
+      - .gitignore
+      - "*_test.go"
+    watched_extension:
+      - "*.go"
+    git_ignore: true
+  executes:
+    - cmd: go tool wails3 build DEV=true
+      type: blocking
+    - cmd: go tool wails3 task common:dev:frontend
+      type: background
+    - cmd: go tool wails3 task run
+      type: primary
+      exit_policy: shutdown

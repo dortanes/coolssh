@@ -1,0 +1,45 @@
+name: Bug report
+description: Something does not work as expected.
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: CoolSSH version
+      description: Settings → About.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Operating system and version
+      placeholder: macOS 26.1, Windows 11 24H2, Ubuntu 24.04
+    validations:
+      required: true
+  - type: input
+    id: server
+    attributes:
+      label: The server you connect to
+      description: Its operating system and SSH server, if the problem is with a connection.
+      placeholder: Debian 13, OpenSSH 10.0
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. …
+        2. …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots or logs
+      description: Remove host names, addresses, user names and keys first.

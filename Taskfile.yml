@@ -1,0 +1,76 @@
+version: '3'
+
+vars:
+  APP_NAME: "coolssh"
+  # The name people see and search for; `info.productName` in build/config.yml carries the same.
+  PRODUCT_NAME: "CoolSSH"
+  BIN_DIR: "bin"
+  WAILS_VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
+  # The host OS unless `go tool wails3 build GOOS=...` cross-compiles.
+  GOOS: '{{.GOOS | default OS}}'
+  STATICCHECK: go run honnef.co/go/tools/cmd/staticcheck@v0.8.1
+  GOCOGNIT: go run github.com/uudashr/gocognit/cmd/gocognit@v1.2.2
+
+includes:
+  common: ./build/Taskfile.yml
+  windows: ./build/windows/Taskfile.yml
+  darwin: ./build/darwin/Taskfile.yml
+  linux: ./build/linux/Taskfile.yml
+
+tasks:
+  build:
+    summary: Builds the app for the target OS
+    cmds:
+      - task: "{{.GOOS}}:build"
+
+  package:
+    summary: Packages a production build for the target OS
+    cmds:
+      - task: "{{.GOOS}}:package"
+
+  run:
+    summary: Runs the built app
+    cmds:
+      - task: "{{.GOOS}}:run"
+
+  dev:
+    summary: Runs the app with the frontend's development server
+    cmds:
+      - go tool wails3 dev -config ./build/config.yml -port {{.WAILS_VITE_PORT}}
+
+  icons:
+    summary: Renders every platform icon from build/appicon.icon
+    cmds:
+      - task: common:render:icons
+
+  check:
+    summary: Runs every gate
+    deps:
+      - task: common:install:frontend:deps
+    # The macOS target the app builds for, so the linker does not warn about newer objects.
+    env:
+      CGO_CFLAGS: '{{if eq OS "darwin"}}-mmacosx-version-min=13.0{{end}}'
+      CGO_LDFLAGS: '{{if eq OS "darwin"}}-mmacosx-version-min=13.0{{end}}'
+      MACOSX_DEPLOYMENT_TARGET: '{{if eq OS "darwin"}}13.0{{end}}'
+    cmds:
+      - task: common:build:frontend
+      - cd frontend && pnpm lint
+      - cd frontend && pnpm typecheck
+      - cd frontend && pnpm test
+      - task: bindings:fresh
+      - cd frontend && pnpm exec jscpd ..
+      - test -z "$(gofmt -l $(git ls-files --cached --others --exclude-standard '*.go'))"
+      - go vet ./...
+      - "{{.STATICCHECK}} ./..."
+      - "{{.GOCOGNIT}} -over $(node -p \"require('./frontend/biome.json').linter.rules.complexity.noExcessiveCognitiveComplexity.options.maxAllowedComplexity\") $(git ls-files --cached --others --exclude-standard '*.go')"
+      - go test -race ./...
+
+  bindings:fresh:
+    summary: Fails when frontend/bindings differs from what the Go service generates
+    internal: true
+    cmds:
+      - |
+        scratch=$(mktemp -d)
+        trap 'rm -rf "$scratch"' EXIT
+        go tool wails3 generate bindings -ts -i -d "$scratch" > /dev/null
+        diff -r "$scratch" frontend/bindings > /dev/null || { echo "frontend/bindings is stale; run go tool wails3 task common:generate:bindings"; exit 1; }

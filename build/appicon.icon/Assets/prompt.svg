@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="prompt-surface" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e4e4e7"/>
+    </linearGradient>
+  </defs>
+  <path d="M 322.5,431.1 A 36,36 0 0 1 373.5,376.9 L 493.5,484.9 A 36,36 0 0 1 493.5,539.1 L 373.5,647.1 A 36,36 0 0 1 322.5,592.9 L 414.6,512 Z" fill="url(#prompt-surface)"/>
+  <rect x="496" y="584" width="216" height="72" rx="36" fill="url(#prompt-surface)"/>
+</svg>

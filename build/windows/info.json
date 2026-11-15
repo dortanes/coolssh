@@ -1,0 +1,15 @@
+{
+	"fixed": {
+		"file_version": "0.1.0"
+	},
+	"info": {
+		"0409": {
+			"ProductVersion": "0.1.0",
+			"CompanyName": "dortanes",
+			"FileDescription": "SSH client for macOS, Windows and Linux",
+			"LegalCopyright": "Copyright (c) 2026 dortanes",
+			"ProductName": "CoolSSH",
+			"Comments": "SSH client for macOS, Windows and Linux"
+		}
+	}
+}

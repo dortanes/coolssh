@@ -1,0 +1,289 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  # Builds and publishes a release left as a draft, which re-running every job cannot do: release-please
+  # reports a release only in the run that creates it.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag of the draft release to build and publish, such as v1.2.3
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: Release pull request
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    outputs:
+      created: ${{ steps.release.outputs.release_created }}
+      tag: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          # A token other than GITHUB_TOKEN lets CI run on the release pull request.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  tag:
+    name: Release tag
+    needs: release-please
+    # A manual run skips release-please, and a skipped job skips every job after it that keeps the default
+    # check, so each job from here on checks its needs' results itself.
+    if: ${{ !cancelled() && (needs.release-please.outputs.created == 'true' || inputs.tag != '') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      version: ${{ steps.tag.outputs.version }}
+    steps:
+      - id: tag
+        env:
+          TAG: ${{ needs.release-please.outputs.tag || inputs.tag }}
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "::error::Not a release tag: $TAG"; exit 1; fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+  macos:
+    name: macOS app
+    needs: tag
+    if: ${{ !cancelled() && needs.tag.result == 'success' }}
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      KEYCHAIN: ${{ github.workspace }}/../signing.keychain-db
+      NOTARY_KEY: ${{ github.workspace }}/../notary.p8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.tag.outputs.tag }}
+      - uses: ./.github/actions/setup
+        with:
+          cache: "false"
+      - name: Signing secrets are set
+        env:
+          CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE_P12 != '' }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD != '' }}
+          NOTARY_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 != '' }}
+          NOTARY_KEY_ID: ${{ secrets.APPLE_API_KEY_ID != '' }}
+          NOTARY_ISSUER: ${{ secrets.APPLE_API_ISSUER_ID != '' }}
+        run: |
+          for name in CERTIFICATE CERTIFICATE_PASSWORD NOTARY_KEY_P8 NOTARY_KEY_ID NOTARY_ISSUER; do
+            if [ "${!name}" != true ]; then echo "::error::Signing secret for $name is not set"; exit 1; fi
+          done
+      - name: Build
+        run: go tool wails3 task darwin:package:universal
+      - name: Install signing material
+        env:
+          CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          NOTARY_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          umask 077
+          keychain_password="$(openssl rand -hex 24)"
+          security create-keychain -p "$keychain_password" "$KEYCHAIN"
+          security set-keychain-settings -lut 3600 "$KEYCHAIN"
+          security unlock-keychain -p "$keychain_password" "$KEYCHAIN"
+          printf '%s' "$CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$KEYCHAIN" -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          rm "$RUNNER_TEMP/certificate.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" login.keychain-db
+          printf '%s' "$NOTARY_KEY_P8" | base64 --decode > "$NOTARY_KEY"
+      - name: Sign and notarize
+        env:
+          NOTARY_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          NOTARY_ISSUER: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: NOTARY_ARGS="--key $NOTARY_KEY --key-id $NOTARY_KEY_ID --issuer $NOTARY_ISSUER" build/darwin/release.sh
+      - name: Remove signing material
+        if: always()
+        run: |
+          security delete-keychain "$KEYCHAIN" || true
+          rm -f "$NOTARY_KEY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: macos
+          path: bin/release/*.dmg
+          if-no-files-found: error
+
+  windows:
+    name: Windows installer
+    needs: tag
+    if: ${{ !cancelled() && needs.tag.result == 'success' }}
+    runs-on: windows-2025
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.tag.outputs.tag }}
+      - uses: ./.github/actions/setup
+        with:
+          cache: "false"
+      - name: Install NSIS
+        run: |
+          choco install nsis --no-progress -y
+          echo 'C:\Program Files (x86)\NSIS' >> "$GITHUB_PATH"
+      - name: Build
+        run: go tool wails3 package
+      - name: Name the installer
+        env:
+          VERSION: ${{ needs.tag.outputs.version }}
+        run: |
+          mkdir -p bin/release
+          mv bin/coolssh-amd64-installer.exe "bin/release/coolssh-$VERSION-windows-amd64-installer.exe"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows
+          path: bin/release/*.exe
+          if-no-files-found: error
+
+  linux:
+    name: Linux packages
+    needs: tag
+    if: ${{ !cancelled() && needs.tag.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.tag.outputs.tag }}
+      - uses: ./.github/actions/setup
+        with:
+          cache: "false"
+      - name: Install GTK and WebKitGTK headers
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libgtk-4-dev libwebkitgtk-6.0-dev
+      - name: Build
+        run: go tool wails3 package
+      - name: Collect packages
+        env:
+          VERSION: ${{ needs.tag.outputs.version }}
+        run: |
+          mkdir -p bin/release
+          mv bin/*.AppImage "bin/release/coolssh-$VERSION-linux-x86_64.AppImage"
+          mv bin/*.deb "bin/release/coolssh-$VERSION-linux-amd64.deb"
+          mv bin/*.rpm "bin/release/coolssh-$VERSION-linux-x86_64.rpm"
+          mv bin/*.pkg.tar.zst "bin/release/coolssh-$VERSION-linux-x86_64.pkg.tar.zst"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: linux
+          path: bin/release/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish release
+    needs: [tag, macos, windows, linux]
+    if: >-
+      ${{ !cancelled() && needs.macos.result == 'success' && needs.windows.result == 'success'
+      && needs.linux.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      # The whole history and its tags, for the commits since the previous release.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.tag.outputs.tag }}
+          fetch-depth: 0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: ${{ runner.temp }}/assets
+          merge-multiple: true
+      - name: Checksums
+        working-directory: ${{ runner.temp }}/assets
+        run: sha256sum -- * > SHA256SUMS
+      # GitHub stores attestations only for public repositories and organization-owned ones.
+      - if: ${{ !github.event.repository.private }}
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/assets/*
+      - name: Release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.tag.outputs.tag }}
+          ASSETS: ${{ runner.temp }}/assets
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+        run: .github/release-notes.sh > "$RUNNER_TEMP/notes.md"
+      - name: Attach assets and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.tag.outputs.tag }}
+        run: |
+          gh release upload "$TAG" "$RUNNER_TEMP"/assets/* --repo "$GITHUB_REPOSITORY" --clobber
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$RUNNER_TEMP/notes.md" --draft=false --latest
+
+  homebrew:
+    name: Update Homebrew cask
+    needs: [tag, publish]
+    if: ${{ !cancelled() && needs.publish.result == 'success' }}
+    runs-on: macos-26
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      HOMEBREW_GITHUB_API_TOKEN: ${{ github.token }}
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      TAG: ${{ needs.tag.outputs.tag }}
+      VERSION: ${{ needs.tag.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: macos
+          path: ${{ runner.temp }}/macos
+      - name: Update, verify and publish the cask
+        run: |
+          latest_tag="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)"
+          if [ "$latest_tag" != "$TAG" ]; then
+            echo "::notice::$TAG is no longer the latest release; leaving the cask unchanged"
+            exit 0
+          fi
+          checksum="$(shasum -a 256 "$RUNNER_TEMP/macos/coolssh-$VERSION-macos-universal.dmg")"
+          checksum="${checksum%% *}"
+          brew tap --custom-remote dortanes/coolssh "$GITHUB_WORKSPACE"
+          brew trust --cask dortanes/coolssh/coolssh
+          current="$(brew info --cask --json=v2 dortanes/coolssh/coolssh)"
+          if [ "$(jq -r '.casks[0].version' <<< "$current")" = "$VERSION" ] &&
+             [ "$(jq -r '.casks[0].sha256' <<< "$current")" = "$checksum" ]; then
+            echo "::notice::The Homebrew cask is already current"
+            exit 0
+          fi
+          brew bump-cask-pr --write-only --no-audit --no-style \
+            --version="$VERSION" --sha256="$checksum" dortanes/coolssh/coolssh
+          # Styling the whole tap, which is this repository, would also lint its workflows against Homebrew's actionlint config.
+          brew style --cask dortanes/coolssh/coolssh
+          brew audit --cask --online dortanes/coolssh/coolssh
+          cp "$(brew --repository dortanes/coolssh)/Casks/coolssh.rb" Casks/coolssh.rb
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add Casks/coolssh.rb
+          git commit -m "chore(cask): 🔧 update to $VERSION"
+          git pull --rebase origin main
+          git push origin HEAD:main
