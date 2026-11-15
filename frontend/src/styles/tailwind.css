@@ -1,0 +1,154 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "./shadcn.css";
+@import "./liquid-glass.css";
+@import "./mica.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: var(--app-font);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-online: var(--online);
+}
+
+/*
+ * `--window` is a solid window's colour, which the window also shows before the page paints
+ * (`surfaces` in internal/desktop/app.go). Each style sets the rest of the tokens in its own file.
+ */
+:root {
+  /* Native scrollbars and form controls follow the theme. */
+  color-scheme: light;
+  --window: #ffffff;
+  /* A peer this device is connected to; 3:1 against every style's sidebar and card. */
+  --online: #059669;
+  --app-font: ui-sans-serif, system-ui, sans-serif;
+  --terminal-font: ui-monospace, "DejaVu Sans Mono", "Liberation Mono", monospace;
+  --terminal-font-size: 13px;
+  --terminal-line-height: 1.2;
+}
+
+.dark {
+  color-scheme: dark;
+  --window: #0a0a0a;
+  --online: #34d399;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    background: var(--window);
+  }
+
+  img {
+    -webkit-user-drag: none;
+  }
+
+  /*
+   * Scrollbars as macOS overlays them: a thin capsule over a clear track, shown only while the
+   * pointer is over what scrolls. WebKit, WebView2 and WebKitGTK all read these pseudo-elements.
+   */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 9999px;
+    background-clip: padding-box;
+    background-color: transparent;
+  }
+
+  :hover::-webkit-scrollbar-thumb {
+    background-color: color-mix(in oklab, var(--foreground) 22%, transparent);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklab, var(--foreground) 40%, transparent);
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* The window's material shows through; shadcn's stock theme paints over it. */
+  html[data-material="true"]:not([data-style="shadcn"]) {
+    background: transparent;
+  }
+
+  html,
+  body,
+  #root {
+    @apply h-full;
+  }
+
+  /* A window never scrolls as a page; its panes scroll inside it. */
+  body {
+    @apply overflow-hidden bg-transparent font-sans text-foreground antialiased select-none;
+  }
+}
+
+/*
+ * A menu is as wide as its longest item and never narrower than what opened it; an item never
+ * wraps. Outside the layers, so it wins over the width the components set.
+ */
+[data-surface="menu"] {
+  width: max-content;
+  min-width: max(var(--anchor-width, 0px), 10rem);
+
+  & :is([role="option"], [role="menuitem"]) {
+    white-space: nowrap;
+  }
+}
+
+/*
+ * xterm.js draws its own scrollbar; the native one of its viewport would show as a second track.
+ * xterm.css loads after this file and paints the viewport black, so the element selector outranks it.
+ */
+html .xterm .xterm-viewport {
+  background-color: transparent;
+  scrollbar-width: none;
+}
+
+/* The thumb is a capsule inset from the scrollbar's edges (scrollbarWidth in session-terminal.ts). */
+.xterm .xterm-scrollable-element > .scrollbar > .slider {
+  box-sizing: border-box;
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background-clip: padding-box;
+}

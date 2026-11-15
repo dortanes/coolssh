@@ -1,0 +1,17 @@
+{
+  "minTokens": 50,
+  "format": ["go", "typescript", "tsx", "css"],
+  "ignore": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/bin/**",
+    "**/build/**",
+    "**/.task/**",
+    "**/frontend/bindings/**",
+    "**/frontend/src/components/ui/**",
+    "**/frontend/src/hooks/**",
+    "**/frontend/src/paraglide/**"
+  ],
+  "reporters": ["console"],
+  "exitCode": 1
+}

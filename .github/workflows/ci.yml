@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    name: Gates
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - run: go tool wails3 task check
+
+  workflows:
+    name: Workflows and scripts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      # actionlint runs shellcheck, which the runner image carries, on every run block.
+      - run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+      - run: shellcheck build/darwin/release.sh .github/release-notes.sh
+
+  package:
+    name: Package (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-26, windows-2025, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - if: runner.os == 'Linux'
+        name: Install GTK and WebKitGTK headers
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libgtk-4-dev libwebkitgtk-6.0-dev
+      - if: runner.os == 'Windows'
+        name: Install NSIS
+        run: |
+          choco install nsis --no-progress -y
+          echo 'C:\Program Files (x86)\NSIS' >> "$GITHUB_PATH"
+      - if: runner.os == 'macOS'
+        run: go tool wails3 task darwin:package:universal
+      - if: runner.os != 'macOS'
+        run: go tool wails3 package

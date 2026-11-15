@@ -1,0 +1,61 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "simple",
+  "include-component-in-tag": false,
+  "bump-minor-pre-major": true,
+  "initial-version": "0.1.0",
+  "draft": true,
+  "force-tag-creation": true,
+  "pull-request-title-pattern": "chore: release ${version}",
+  "changelog-sections": [
+    { "type": "feat", "section": "Features" },
+    { "type": "fix", "section": "Bug Fixes" },
+    { "type": "perf", "section": "Performance" },
+    { "type": "security", "section": "Security" },
+    { "type": "revert", "section": "Reverts" },
+    { "type": "deps", "section": "Dependencies" },
+    { "type": "docs", "section": "Documentation", "hidden": true },
+    { "type": "refactor", "section": "Refactoring", "hidden": true },
+    { "type": "test", "section": "Tests", "hidden": true },
+    { "type": "build", "section": "Build", "hidden": true },
+    { "type": "ci", "section": "CI", "hidden": true },
+    { "type": "chore", "section": "Miscellaneous", "hidden": true }
+  ],
+  "packages": {
+    ".": {
+      "package-name": "coolssh",
+      "extra-files": [
+        { "type": "generic", "path": "build/config.yml" },
+        { "type": "generic", "path": "build/linux/nfpm/nfpm.yaml" },
+        { "type": "generic", "path": "build/windows/nsis/wails_tools.nsh" },
+        { "type": "json", "path": "build/windows/info.json", "jsonpath": "$.fixed.file_version" },
+        { "type": "json", "path": "build/windows/info.json", "jsonpath": "$.info['0409'].ProductVersion" },
+        {
+          "type": "xml",
+          "path": "build/windows/wails.exe.manifest",
+          "xpath": "/*[local-name()='assembly']/*[local-name()='assemblyIdentity']/@version"
+        },
+        {
+          "type": "xml",
+          "path": "build/darwin/Info.plist",
+          "xpath": "//dict/key[text()='CFBundleShortVersionString']/following-sibling::string[1]"
+        },
+        {
+          "type": "xml",
+          "path": "build/darwin/Info.plist",
+          "xpath": "//dict/key[text()='CFBundleVersion']/following-sibling::string[1]"
+        },
+        {
+          "type": "xml",
+          "path": "build/darwin/Info.dev.plist",
+          "xpath": "//dict/key[text()='CFBundleShortVersionString']/following-sibling::string[1]"
+        },
+        {
+          "type": "xml",
+          "path": "build/darwin/Info.dev.plist",
+          "xpath": "//dict/key[text()='CFBundleVersion']/following-sibling::string[1]"
+        }
+      ]
+    }
+  }
+}
